@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment
+.env
+.venv
+venv/
+ENV/
+.gmail_oauth.json
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# CSV/Text outputs
+*.csv
+phones.txt
+websites.txt
+summary.txt
+queries_test.txt
+
+# References/External tools
+references/
+gmaps-scraper.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Testing
+test_*.py
+test_*.csv

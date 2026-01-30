@@ -1,0 +1,28 @@
+# Render.com deployment config
+# วางไฟล์นี้ที่ root ของ repo
+
+services:
+  # Web Service - FastAPI
+  - type: web
+    name: checkin-api
+    env: python
+    region: singapore  # เปลี่ยนเป็น region ที่ใกล้ user
+    plan: free  # free tier
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: checkin-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: "*"  # เปลี่ยนเป็น domain จริงตอน production
+    
+databases:
+  # PostgreSQL Database
+  - name: checkin-db
+    databaseName: checkin
+    user: checkin_user
+    plan: free  # free tier (90 วัน)

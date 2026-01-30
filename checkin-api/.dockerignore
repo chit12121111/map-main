@@ -1,0 +1,14 @@
+# ไม่ copy เข้า Docker image (ความปลอดภัย + ขนาด image)
+.env
+.env.local
+*.db
+*.sqlite
+__pycache__/
+.git/
+.venv/
+venv/
+*.md
+Procfile
+railway.json
+render.yaml
+test_*.py
