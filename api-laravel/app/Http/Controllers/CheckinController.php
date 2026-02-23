@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CheckIn;
+use App\Models\EmailOutbox;
 use App\Models\InviteToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -148,6 +149,13 @@ class CheckinController extends Controller
             'user_agent' => 'RESPONSE:'.$data['response'],
             'referrer' => $request->header('Referer'),
         ]);
+        EmailOutbox::query()
+            ->where('token', $data['token'])
+            ->where('email', $data['email'])
+            ->update([
+                'response_status' => $data['response'] === 'interested' ? 'INTERESTED' : 'UNSUBSCRIBED',
+                'responded_at' => now(),
+            ]);
 
         return response()->json([
             'message' => 'บันทึกเรียบร้อยแล้ว',

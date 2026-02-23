@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Cell,
   Pie,
@@ -16,28 +17,69 @@ type ChartItem = { name: string; value: number };
 
 const palette = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#64748b"];
 
+function colorByName(name: string, idx: number): string {
+  const normalized = name.toUpperCase();
+  if (normalized === "DONE") return "#10b981";
+  if (normalized === "FAILED") return "#ef4444";
+  if (normalized === "NEW") return "#f59e0b";
+  return palette[idx % palette.length];
+}
+
 export function DonutChartCard(props: {
   data: ChartItem[];
   innerRadius?: number;
   outerRadius?: number;
   onSelect?: (name: string) => void;
   selectedName?: string;
+  showAllButton?: boolean;
+  repeatSelectFallbackName?: string;
 }) {
+  const selectedItem = useMemo(
+    () => props.data.find((item) => item.name === props.selectedName),
+    [props.data, props.selectedName],
+  );
+  const totalValue = useMemo(
+    () => props.data.reduce((sum, item) => sum + item.value, 0),
+    [props.data],
+  );
+  const displayData = selectedItem ? [selectedItem] : props.data;
+  const onSelectName = (name: string) => {
+    if (props.selectedName === name && props.repeatSelectFallbackName) {
+      props.onSelect?.(props.repeatSelectFallbackName);
+      return;
+    }
+    props.onSelect?.(name);
+  };
+
   return (
     <div className="chart-wrap" role="img" aria-label="Donut chart">
       <ResponsiveContainer width="100%" height={260}>
         <PieChart>
           <Pie
-            data={props.data}
+            data={displayData}
             dataKey="value"
             nameKey="name"
             innerRadius={props.innerRadius ?? 65}
             outerRadius={props.outerRadius ?? 95}
             paddingAngle={2}
-            onClick={(entry) => props.onSelect?.(entry.name)}
+            labelLine={false}
+            label={({ x, y, value }) => (
+              <text
+                x={x}
+                y={y}
+                fill="#111827"
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={12}
+                fontWeight={700}
+              >
+                {value}
+              </text>
+            )}
+            onClick={(entry) => onSelectName(entry.name)}
           >
-            {props.data.map((_, idx) => (
-              <Cell key={`cell-${idx}`} fill={palette[idx % palette.length]} />
+            {displayData.map((item, idx) => (
+              <Cell key={`cell-${item.name}-${idx}`} fill={colorByName(item.name, idx)} />
             ))}
           </Pie>
           <Tooltip />
@@ -45,12 +87,22 @@ export function DonutChartCard(props: {
         </PieChart>
       </ResponsiveContainer>
       <div className="chart-filter-list" aria-label="Donut filters">
+        {props.showAllButton ? (
+          <button
+            key="all"
+            type="button"
+            className={`chart-filter-btn ${props.selectedName ? "" : "active"}`}
+            onClick={() => props.onSelect?.("")}
+          >
+            ALL ({totalValue})
+          </button>
+        ) : null}
         {props.data.map((item) => (
           <button
             key={item.name}
             type="button"
             className={`chart-filter-btn ${props.selectedName === item.name ? "active" : ""}`}
-            onClick={() => props.onSelect?.(item.name)}
+            onClick={() => onSelectName(item.name)}
           >
             {item.name} ({item.value})
           </button>

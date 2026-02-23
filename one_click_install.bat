@@ -7,6 +7,8 @@ set "ROOT=%cd%"
 set "API_DIR=%ROOT%\api-laravel"
 set "WEB_DIR=%ROOT%\web-ui-react"
 set "LOG_DIR=%ROOT%\logs"
+set "API_ENV=%API_DIR%\.env"
+set "MAIL_OK=1"
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "TS=%%I"
@@ -99,6 +101,24 @@ if not exist "%API_DIR%\.env" (
     goto :fail
   )
 )
+set "MAIL_MAILER="
+set "MAIL_HOST="
+set "MAIL_PORT="
+set "MAIL_USERNAME="
+set "MAIL_PASSWORD="
+set "MAIL_ENCRYPTION="
+set "MAIL_FROM_ADDRESS="
+set "MAIL_FROM_NAME="
+for /f "usebackq tokens=1* delims==" %%A in ("%API_ENV%") do (
+  if /I "%%A"=="MAIL_MAILER" set "MAIL_MAILER=%%B"
+  if /I "%%A"=="MAIL_HOST" set "MAIL_HOST=%%B"
+  if /I "%%A"=="MAIL_PORT" set "MAIL_PORT=%%B"
+  if /I "%%A"=="MAIL_USERNAME" set "MAIL_USERNAME=%%B"
+  if /I "%%A"=="MAIL_PASSWORD" set "MAIL_PASSWORD=%%B"
+  if /I "%%A"=="MAIL_ENCRYPTION" set "MAIL_ENCRYPTION=%%B"
+  if /I "%%A"=="MAIL_FROM_ADDRESS" set "MAIL_FROM_ADDRESS=%%B"
+  if /I "%%A"=="MAIL_FROM_NAME" set "MAIL_FROM_NAME=%%B"
+)
 
 call :run "Composer install (api)" "cd /d ""%API_DIR%"" && composer install"
 if errorlevel 1 goto :fail
@@ -114,6 +134,19 @@ if errorlevel 1 goto :fail
 
 call :run "Install web dependencies" "cd /d ""%WEB_DIR%"" && npm install"
 if errorlevel 1 goto :fail
+
+if not defined MAIL_MAILER set "MAIL_OK=0"
+if not defined MAIL_HOST set "MAIL_OK=0"
+if not defined MAIL_PORT set "MAIL_OK=0"
+if not defined MAIL_USERNAME set "MAIL_OK=0"
+if not defined MAIL_PASSWORD set "MAIL_OK=0"
+if not defined MAIL_ENCRYPTION set "MAIL_OK=0"
+if not defined MAIL_FROM_ADDRESS set "MAIL_OK=0"
+if not defined MAIL_FROM_NAME set "MAIL_OK=0"
+if "%MAIL_OK%"=="0" (
+  call :log "WARNING: mail config is incomplete in api-laravel/.env"
+  call :log "         Required: MAIL_MAILER, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_ENCRYPTION, MAIL_FROM_ADDRESS, MAIL_FROM_NAME"
+)
 
 call :log "==== one click install success ===="
 echo.

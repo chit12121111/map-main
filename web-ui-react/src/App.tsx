@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/layout";
 import DashboardPage from "./pages/dashboard";
 import ViewsPage from "./pages/views";
-import CustomersPage from "./pages/customers";
 import CustomerDetailsPage from "./pages/customerDetails";
 import OrganizationsPage from "./pages/organizations";
 import SettingsPage from "./pages/settings";
@@ -14,7 +13,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/views" element={<ViewsPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/customers" element={<Navigate to="/views" replace />} />
         <Route path="/customer-details" element={<CustomerDetailsPage />} />
         <Route path="/customer-details/:placeId" element={<CustomerDetailsPage />} />
         <Route path="/organizations" element={<OrganizationsPage />} />

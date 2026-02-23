@@ -1,9 +1,10 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Badge, Card, EmptyState, PageHeader } from "../components/ui";
+import { Badge, Button, Card, EmptyState, PageHeader } from "../components/ui";
 
 export default function CustomerDetailsPage() {
+  const nav = useNavigate();
   const params = useParams<{ placeId?: string }>();
   const placeId = params.placeId;
 
@@ -17,10 +18,6 @@ export default function CustomerDetailsPage() {
     queryFn: () => api.getEmails({ placeId }),
     enabled: Boolean(placeId),
   });
-  const urlsQ = useQuery({
-    queryKey: ["urls"],
-    queryFn: () => api.getDiscoveredUrls(),
-  });
 
   if (!placeId) {
     return (
@@ -33,9 +30,20 @@ export default function CustomerDetailsPage() {
 
   return (
     <div className="page-stack">
-      <PageHeader title="Customer Details" subtitle={`place_id: ${placeId}`} right={<Badge tone={(placeQ.data?.status || "") === "DONE" ? "ok" : "neutral"}>{placeQ.data?.status || "N/A"}</Badge>} />
+      <PageHeader
+        title="Customer Details"
+        subtitle={`place_id: ${placeId}`}
+        right={
+          <div className="row gap-sm">
+            <Badge tone={(placeQ.data?.status || "") === "DONE" ? "ok" : placeQ.data?.status === "FAILED" ? "bad" : "neutral"}>
+              {placeQ.data?.status || "N/A"}
+            </Badge>
+            <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>
+          </div>
+        }
+      />
 
-      <div className="split-grid">
+      <div className="customer-details-wrap">
         <Card title="Profile">
           {placeQ.isPending ? (
             <EmptyState title="Loading profile..." message="กำลังดึงข้อมูล place" />
@@ -46,49 +54,49 @@ export default function CustomerDetailsPage() {
           ) : (
             <div className="kv-list">
               <div><span>Name</span><strong>{placeQ.data.name}</strong></div>
-              <div><span>Category</span><strong>{placeQ.data.category || "-"}</strong></div>
+              <div><span>Category</span><strong>{placeQ.data.normalized_category || placeQ.data.category || "-"}</strong></div>
               <div><span>Phone</span><strong>{placeQ.data.phone || "-"}</strong></div>
-              <div><span>Website</span><strong>{placeQ.data.website || "-"}</strong></div>
+              <div>
+                <span>Email</span>
+                <strong>
+                  {(emailsQ.data?.data || []).length ? (
+                    (emailsQ.data?.data || []).map((item) => (
+                      <div key={item.id}>
+                        <a href={`mailto:${item.email}`}>{item.email}</a>
+                      </div>
+                    ))
+                  ) : emailsQ.isPending ? (
+                    "Loading..."
+                  ) : (
+                    "-"
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Website</span>
+                <strong>
+                  {placeQ.data.website ? (
+                    <a href={placeQ.data.website} target="_blank" rel="noreferrer">{placeQ.data.website}</a>
+                  ) : (
+                    "-"
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Google Maps</span>
+                <strong>
+                  {placeQ.data.google_maps_url ? (
+                    <a href={placeQ.data.google_maps_url} target="_blank" rel="noreferrer">Open map</a>
+                  ) : (
+                    "-"
+                  )}
+                </strong>
+              </div>
               <div><span>Address</span><strong>{placeQ.data.address || "-"}</strong></div>
             </div>
           )}
         </Card>
-        <Card title="Emails">
-          {emailsQ.isPending ? (
-            <EmptyState title="Loading emails..." message="กำลังดึงข้อมูลอีเมล" />
-          ) : emailsQ.isError ? (
-            <EmptyState title="โหลดข้อมูลอีเมลไม่สำเร็จ" message={(emailsQ.error as Error)?.message || "Unknown error"} />
-          ) : !(emailsQ.data?.data || []).length ? (
-            <EmptyState title="ยังไม่พบอีเมล" message="รอ Stage 2-4 ประมวลผลเพิ่มเติม" />
-          ) : (
-            <ul className="simple-list">
-              {(emailsQ.data?.data || []).map((e) => (
-                <li key={e.id}>
-                  {e.email} <small>({e.source})</small>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
       </div>
-
-      <Card title="Discovered URLs">
-        {urlsQ.isPending ? (
-          <EmptyState title="Loading URLs..." message="กำลังดึง discovered URLs" />
-        ) : urlsQ.isError ? (
-          <EmptyState title="โหลด URLs ไม่สำเร็จ" message={(urlsQ.error as Error)?.message || "Unknown error"} />
-        ) : (
-          <ul className="simple-list">
-            {(urlsQ.data?.data || [])
-              .filter((u) => u.place_id === placeId)
-              .map((u) => (
-                <li key={u.id}>
-                  {u.url} <small>[{u.url_type} / {u.status}]</small>
-                </li>
-              ))}
-          </ul>
-        )}
-      </Card>
     </div>
   );
 }

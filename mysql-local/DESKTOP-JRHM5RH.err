@@ -1,0 +1,16 @@
+2026-02-23T03:37:24.877701Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.
+2026-02-23T03:37:24.889564Z 0 [System] [MY-013169] [Server] C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqld.exe (mysqld 8.4.3) initializing of server in progress as process 6840
+2026-02-23T03:37:24.953601Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+2026-02-23T03:37:25.253994Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+2026-02-23T03:37:26.064841Z 0 [Warning] [MY-013829] [Server] Missing data directory for ICU regular expressions: C:\laragon\bin\mysql\mysql-8.4.3-winx64\lib\private\.
+2026-02-23T03:37:26.855103Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+2026-02-23T03:37:28.698709Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.
+2026-02-23T03:37:34.660863Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+2026-02-23T03:37:34.911696Z 0 [Warning] [MY-010097] [Server] Insecure configuration for --secure-file-priv: Current value does not restrict location of generated files. Consider setting it to a valid, non-empty path.
+2026-02-23T03:37:34.911765Z 0 [System] [MY-010116] [Server] C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqld.exe (mysqld 8.4.3) starting as process 4576
+2026-02-23T03:37:34.948095Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+2026-02-23T03:37:35.239385Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+2026-02-23T03:37:35.619842Z 0 [Warning] [MY-013829] [Server] Missing data directory for ICU regular expressions: C:\laragon\bin\mysql\mysql-8.4.3-winx64\lib\private\.
+2026-02-23T03:37:35.633128Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+2026-02-23T03:37:35.633697Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+2026-02-23T03:37:35.671964Z 0 [System] [MY-010931] [Server] C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqld.exe: ready for connections. Version: '8.4.3'  socket: ''  port: 3307  MySQL Community Server - GPL.

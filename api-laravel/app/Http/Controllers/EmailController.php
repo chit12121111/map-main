@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Email;
+use App\Models\Place;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,6 +52,10 @@ class EmailController extends Controller
             ['place_id' => $data['place_id'], 'email' => $data['email']],
             ['source' => $data['source']]
         );
+        // Keep place status in sync with discovered contacts.
+        Place::query()
+            ->where('place_id', $data['place_id'])
+            ->update(['status' => 'DONE']);
 
         return response()->json($email, 201);
     }
