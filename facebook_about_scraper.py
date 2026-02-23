@@ -21,11 +21,18 @@ if sys.platform == 'win32':
 
 
 class FacebookPlaywrightScraper:
-    def __init__(self, db_path='pipeline.db', verbose=True):
+    def __init__(self, db_path='pipeline.db', verbose=True, use_api=False):
         """Initialize scraper"""
+        import os
         self.db_path = db_path
         self.verbose = verbose
-        
+        self.use_api = use_api or bool(os.environ.get('CHECKIN_API_URL') or os.environ.get('API_BASE_URL'))
+        self._api = None
+        if self.use_api:
+            try:
+                self._api = __import__('api_client')
+            except ImportError:
+                self.use_api = False
         # Database
         self.conn = None
         self.cursor = None
@@ -52,13 +59,24 @@ class FacebookPlaywrightScraper:
     # ==================== Database ====================
     
     def connect_db(self):
-        """Connect to database"""
+        """Connect to database or no-op when using API"""
+        if self.use_api:
+            self.conn = None
+            self.cursor = None
+            self.log("[DB] Using API")
+            return
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
         self.log(f"[DB] Connected: {self.db_path}")
     
     def get_facebook_urls(self):
-        """Get Facebook URLs from places"""
+        """Get Facebook URLs from places (DB or API)"""
+        if self.use_api and self._api:
+            r = self._api.get_places(per_page=2000)
+            data = (r or {}).get('data') or []
+            results = [(p.get('place_id'), p.get('name', ''), p.get('website') or '') for p in data if 'facebook.com' in (p.get('website') or '')]
+            self.log(f"[DB] Found {len(results)} Facebook pages (API)")
+            return results
         query = """
             SELECT place_id, name, website 
             FROM places 
@@ -71,10 +89,16 @@ class FacebookPlaywrightScraper:
         return results
     
     def save_email(self, place_id, email):
-        """Save email to database"""
+        """Save email to database or API"""
         if not email:
             return
-        
+        if self.use_api and self._api:
+            try:
+                self._api.create_email(place_id, email, 'FACEBOOK_PLAYWRIGHT')
+                self.log(f"   [SAVE] {email}")
+            except Exception as e:
+                self.log(f"   [ERROR] Save failed: {e}")
+            return
         try:
             self.cursor.execute("""
                 INSERT OR IGNORE INTO emails (place_id, email, source, created_at)
@@ -108,7 +132,14 @@ class FacebookPlaywrightScraper:
         return list(cleaned_urls)[:5]  # Max 5 URLs
     
     def save_discovered_url(self, place_id, url, url_type):
-        """บันทึก discovered URL ลง database"""
+        """บันทึก discovered URL ลง database หรือ API"""
+        if self.use_api and self._api:
+            try:
+                self._api.create_discovered_url(place_id, url, url_type, 'STAGE3')
+                return True
+            except Exception as e:
+                self.log(f"   [WARNING] Save discovered URL error: {e}")
+                return False
         try:
             self.cursor.execute("""
                 INSERT OR IGNORE INTO discovered_urls 
@@ -122,7 +153,9 @@ class FacebookPlaywrightScraper:
             return False
     
     def close_db(self):
-        """Close database"""
+        """Close database (no-op when using API)"""
+        if self.use_api:
+            return
         if self.conn:
             self.conn.close()
             self.log("[DB] Closed")

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Run Database Migrations
+Run Database Migrations (SQLite เท่านั้น — ใช้เมื่อรันโหมด local ทดสอบ)
+โปรเจกต์หลักใช้ Laravel API (MySQL) — migrations อยู่ที่ api-laravel/migrations
 รันจาก root: python scripts/run_migrations.py
 """
 import sys

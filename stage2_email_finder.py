@@ -26,9 +26,21 @@ if sys.platform == 'win32':
 
 
 class EmailFinderPlaywright:
-    def __init__(self, db_path, verbose=False):
+    def __init__(self, db_path, verbose=False, use_api=False, api_base_url=None):
         self.db_path = db_path
         self.verbose = verbose
+        self.use_api = use_api
+        self.api_base_url = api_base_url or (__import__('os').environ.get('CHECKIN_API_URL') or __import__('os').environ.get('API_BASE_URL'))
+        if self.use_api and not self.api_base_url:
+            self.use_api = False
+        self._api = None
+        if self.use_api:
+            try:
+                self._api = __import__('api_client')
+            except ImportError:
+                self.use_api = False
+                if verbose:
+                    print("[WARNING] API mode requested but api_client not found; using DB")
         
         # Settings
         self.page_timeout = 8000  # 8 seconds
@@ -48,14 +60,22 @@ class EmailFinderPlaywright:
         self.page = None
     
     def connect_db(self):
-        """Connect to SQLite database"""
+        """Connect to SQLite database or no-op when using API"""
+        if self.use_api:
+            self.conn = None
+            self.cursor = None
+            if self.verbose:
+                print(f"[OK] Using API: {self.api_base_url}")
+            return
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
         if self.verbose:
             print(f"[OK] Connected to database: {self.db_path}")
     
     def close_db(self):
-        """Close database connection"""
+        """Close database connection (no-op when using API)"""
+        if self.use_api:
+            return
         if hasattr(self, 'conn') and self.conn:
             self.conn.close()
             if self.verbose:
@@ -132,21 +152,45 @@ class EmailFinderPlaywright:
     # ==================== Phase 1: Read & Lock ====================
     
     def get_new_records(self, limit=None):
-        """Get records with status='NEW'"""
+        """Get records with status='NEW' (from DB or API)"""
+        if self.use_api and self._api:
+            per_page = min(500, limit) if limit else 500
+            page = 1
+            data = []
+            while True:
+                r = self._api.get_places(status='NEW', per_page=per_page, page=page)
+                chunk = (r or {}).get('data') or []
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if limit and len(data) >= limit:
+                    data = data[:limit]
+                    break
+                current_page = int((r or {}).get('current_page') or page)
+                last_page = int((r or {}).get('last_page') or current_page)
+                if current_page >= last_page:
+                    break
+                if len(chunk) < per_page:
+                    break
+                page += 1
+            records = [(p.get('place_id'), p.get('name', ''), p.get('website') or '', p.get('raw_data') or '{}') for p in data]
+            if self.verbose:
+                print(f"[INFO] Found {len(records)} records with status='NEW' (API)")
+            return records
         sql = "SELECT place_id, name, website, raw_data FROM places WHERE status='NEW'"
         if limit:
             sql += f" LIMIT {limit}"
-        
         self.cursor.execute(sql)
         records = self.cursor.fetchall()
-        
         if self.verbose:
             print(f"[INFO] Found {len(records)} records with status='NEW'")
-        
         return records
     
     def lock_record(self, place_id):
         """UPDATE status='PROCESSING'"""
+        if self.use_api and self._api:
+            self._api.update_place(place_id, {'status': 'PROCESSING'})
+            return
         self.cursor.execute(
             "UPDATE places SET status='PROCESSING', updated_at=strftime('%s', 'now') WHERE place_id=?",
             (place_id,)
@@ -216,7 +260,15 @@ class EmailFinderPlaywright:
         return list(cleaned_urls)
     
     def save_discovered_url(self, place_id, url, url_type):
-        """บันทึก discovered URL ลง database"""
+        """บันทึก discovered URL ลง database หรือ API"""
+        if self.use_api and self._api:
+            try:
+                self._api.create_discovered_url(place_id, url, url_type, 'STAGE2')
+                return True
+            except Exception as e:
+                if self.verbose:
+                    print(f"   [WARNING] Save discovered URL error: {e}")
+                return False
         try:
             self.cursor.execute("""
                 INSERT OR IGNORE INTO discovered_urls 
@@ -357,7 +409,15 @@ class EmailFinderPlaywright:
             return None
     
     def save_email(self, place_id, email, source):
-        """Save email to emails table"""
+        """Save email to emails table or API"""
+        if self.use_api and self._api:
+            try:
+                self._api.create_email(place_id, email, source)
+                return True
+            except Exception as e:
+                if self.verbose:
+                    print(f"   [WARNING] Save email error: {e}")
+                return False
         try:
             self.cursor.execute(
                 "INSERT OR IGNORE INTO emails (place_id, email, source) VALUES (?, ?, ?)",
@@ -374,6 +434,9 @@ class EmailFinderPlaywright:
     
     def finalize_record(self, place_id, status):
         """UPDATE status"""
+        if self.use_api and self._api:
+            self._api.update_place(place_id, {'status': status})
+            return
         self.cursor.execute(
             "UPDATE places SET status=?, updated_at=strftime('%s', 'now') WHERE place_id=?",
             (status, place_id)
@@ -487,18 +550,18 @@ class EmailFinderPlaywright:
 
 
 def main():
+    import os
     parser = argparse.ArgumentParser(description='Stage 2: Email Finder (Playwright)')
     parser.add_argument('--db', default='pipeline.db', help='SQLite database path')
+    parser.add_argument('--api', action='store_true', help='Use API (CHECKIN_API_URL) instead of SQLite')
     parser.add_argument('--limit', type=int, help='จำกัดจำนวน records')
     parser.add_argument('--verbose', '-v', action='store_true', help='แสดงข้อความละเอียด')
-    
     args = parser.parse_args()
-    
+    use_api = args.api or bool(os.environ.get('CHECKIN_API_URL') or os.environ.get('API_BASE_URL'))
     print("=" * 60)
     print("Stage 2: Email Finder - PLAYWRIGHT VERSION 🚀")
     print("=" * 60)
-    
-    finder = EmailFinderPlaywright(args.db, verbose=args.verbose)
+    finder = EmailFinderPlaywright(args.db, verbose=args.verbose, use_api=use_api)
     finder.run(limit=args.limit)
     
     print("\n[DONE] Stage 2 completed! ✅")

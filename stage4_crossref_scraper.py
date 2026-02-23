@@ -25,9 +25,17 @@ if sys.platform == 'win32':
 
 
 class CrossRefScraper:
-    def __init__(self, db_path, verbose=False):
+    def __init__(self, db_path, verbose=False, use_api=False):
+        import os
         self.db_path = db_path
         self.verbose = verbose
+        self.use_api = use_api or bool(os.environ.get('CHECKIN_API_URL') or os.environ.get('API_BASE_URL'))
+        self._api = None
+        if self.use_api:
+            try:
+                self._api = __import__('api_client')
+            except ImportError:
+                self.use_api = False
         
         # Settings
         self.page_timeout = 8000
@@ -43,14 +51,22 @@ class CrossRefScraper:
         self.page = None
     
     def connect_db(self):
-        """Connect to database"""
+        """Connect to database or no-op when using API"""
+        if self.use_api:
+            self.conn = None
+            self.cursor = None
+            if self.verbose:
+                print("[OK] Using API")
+            return
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
         if self.verbose:
             print(f"[OK] Connected to database: {self.db_path}")
     
     def close_db(self):
-        """Close database"""
+        """Close database (no-op when using API)"""
+        if self.use_api:
+            return
         if hasattr(self, 'conn') and self.conn:
             self.conn.close()
             if self.verbose:
@@ -106,7 +122,31 @@ class CrossRefScraper:
     # ==================== Database Operations ====================
     
     def get_discovered_urls(self, limit=None):
-        """Get discovered URLs with status='NEW'"""
+        """Get discovered URLs with status='NEW' (from DB or API)"""
+        if self.use_api and self._api:
+            per_page = min(500, limit) if limit else 500
+            page = 1
+            data = []
+            while True:
+                r = self._api.get_discovered_urls(status='NEW', per_page=per_page, page=page)
+                chunk = (r or {}).get('data') or []
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if limit and len(data) >= limit:
+                    data = data[:limit]
+                    break
+                current_page = int((r or {}).get('current_page') or page)
+                last_page = int((r or {}).get('last_page') or current_page)
+                if current_page >= last_page:
+                    break
+                if len(chunk) < per_page:
+                    break
+                page += 1
+            records = [(d.get('id'), d.get('place_id'), d.get('url'), d.get('url_type')) for d in data]
+            if self.verbose:
+                print(f"[INFO] Found {len(records)} discovered URLs (status='NEW') (API)")
+            return records
         sql = """
             SELECT id, place_id, url, url_type 
             FROM discovered_urls 
@@ -115,17 +155,17 @@ class CrossRefScraper:
         """
         if limit:
             sql += f" LIMIT {limit}"
-        
         self.cursor.execute(sql)
         records = self.cursor.fetchall()
-        
         if self.verbose:
             print(f"[INFO] Found {len(records)} discovered URLs (status='NEW')")
-        
         return records
     
     def lock_discovered_url(self, url_id):
         """UPDATE status='PROCESSING'"""
+        if self.use_api and self._api:
+            self._api.update_discovered_url(int(url_id), 'PROCESSING')
+            return
         self.cursor.execute(
             "UPDATE discovered_urls SET status='PROCESSING', updated_at=strftime('%s', 'now') WHERE id=?",
             (url_id,)
@@ -134,6 +174,9 @@ class CrossRefScraper:
     
     def finalize_discovered_url(self, url_id, status):
         """UPDATE status='DONE' or 'FAILED'"""
+        if self.use_api and self._api:
+            self._api.update_discovered_url(int(url_id), status)
+            return
         self.cursor.execute(
             "UPDATE discovered_urls SET status=?, updated_at=strftime('%s', 'now') WHERE id=?",
             (status, url_id)
@@ -141,7 +184,15 @@ class CrossRefScraper:
         self.conn.commit()
     
     def save_email(self, place_id, email, source):
-        """Save email to emails table"""
+        """Save email to emails table or API"""
+        if self.use_api and self._api:
+            try:
+                self._api.create_email(place_id, email, source)
+                return True
+            except Exception as e:
+                if self.verbose:
+                    print(f"   [WARNING] Save email error: {e}")
+                return False
         try:
             self.cursor.execute(
                 "INSERT OR IGNORE INTO emails (place_id, email, source) VALUES (?, ?, ?)",

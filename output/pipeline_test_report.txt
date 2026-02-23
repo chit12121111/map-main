@@ -1,0 +1,24 @@
+============================================================
+Pipeline Runner - Test all stages
+============================================================
+PROJECT_ROOT: C:\Users\0355\Desktop\mapping\map-main
+CHECKIN_API_URL: http://127.0.0.1:8010
+
+--- Stage 1: Google Maps Scraper (gosom) ---
+Geo center: 14.236774,100.727497 (from: วังน้อย พระนครศรีอยุธยา)
+Result: OK
+      CSV rows (approx): 14
+      CSV -> API: OK (created=13, updated=1, total=14)
+
+--- Stage 2: Website Email Finder ---
+Result: OK
+
+--- Stage 3: Facebook Scraper ---
+Result: OK
+
+--- Stage 4: Cross-Reference Scraper ---
+Result: OK
+
+============================================================
+Summary: see above
+============================================================

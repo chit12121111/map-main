@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยืนยันการรับข้อมูล</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card { background: white; border-radius: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.25); padding: 50px 40px; max-width: 480px; width: 100%; text-align: center; animation: fadeIn 0.6s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        .icon { width: 90px; height: 90px; margin: 0 auto 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 45px; animation: scaleIn 0.5s ease 0.3s both; }
+        @keyframes scaleIn { from { transform: scale(0); } to { transform: scale(1); } }
+        .icon.success { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #28a745; }
+        .icon.error { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #dc3545; }
+        .icon.loading { background: linear-gradient(135deg, #e7f3ff 0%, #cce5ff 100%); color: #007bff; }
+        .icon.choice { background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); color: #856404; }
+        h1 { font-size: 26px; margin-bottom: 12px; color: #2d3748; font-weight: 700; }
+        p { color: #718096; font-size: 16px; line-height: 1.7; margin-bottom: 8px; }
+        .subtitle { color: #a0aec0; font-size: 14px; margin-top: 5px; }
+        .email { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); padding: 14px 20px; border-radius: 12px; margin-top: 20px; font-weight: 600; color: #4a5568; word-break: break-all; border: 1px solid #e2e8f0; }
+        .timestamp { font-size: 13px; color: #a0aec0; margin-top: 15px; }
+        .spinner { width: 45px; height: 45px; border: 4px solid #e2e8f0; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .buttons { display: flex; flex-direction: column; gap: 12px; margin-top: 25px; }
+        .btn { padding: 16px 24px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-secondary { background: #f7fafc; color: #718096; border: 2px solid #e2e8f0; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .result-msg { margin-top: 20px; padding: 15px; border-radius: 10px; font-size: 15px; }
+        .result-msg.info { background: #cce5ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <div class="card" id="card">
+        <div class="icon loading" id="icon"><div class="spinner"></div></div>
+        <h1 id="title">กำลังตรวจสอบ...</h1>
+        <p id="message">โปรดรอสักครู่</p>
+        <p id="subtitle" class="subtitle"></p>
+        <div id="emailDisplay"></div>
+        <div id="buttons" class="buttons" style="display: none;"></div>
+        <div id="resultMsg"></div>
+        <div id="timestamp" class="timestamp"></div>
+    </div>
+    <script>
+        const API_URL = window.location.origin;
+        let currentToken = null;
+        let currentEmail = null;
+        async function checkin() {
+            const params = new URLSearchParams(window.location.search);
+            currentToken = params.get('t');
+            if (!currentToken) { showError('ลิงก์ไม่ถูกต้อง', 'ไม่พบข้อมูลในลิงก์ โปรดตรวจสอบลิงก์อีกครั้ง'); return; }
+            try {
+                const response = await fetch(API_URL + '/checkin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ token: currentToken }) });
+                const data = await response.json();
+                if (response.ok) { currentEmail = data.email; showChoiceButtons(data.email); }
+                else { showError('ไม่สามารถดำเนินการได้', data.detail || data.message || 'ลิงก์อาจหมดอายุหรือถูกใช้งานไปแล้ว'); }
+            } catch (error) {
+                showError('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ โปรดลองอีกครั้ง');
+            }
+        }
+        function showChoiceButtons(email) {
+            document.getElementById('icon').className = 'icon choice';
+            document.getElementById('icon').innerHTML = '?';
+            document.getElementById('title').textContent = 'ยืนยันความสนใจของคุณ';
+            document.getElementById('message').textContent = 'กรุณาเลือกตัวเลือกที่ตรงกับความต้องการของคุณ';
+            document.getElementById('subtitle').textContent = 'เราจะปรับปรุงการส่งข้อมูลตามที่คุณเลือก';
+            if (email) document.getElementById('emailDisplay').innerHTML = '<div class="email">' + email + '</div>';
+            const buttonsDiv = document.getElementById('buttons');
+            buttonsDiv.style.display = 'flex';
+            buttonsDiv.innerHTML = '<button class="btn btn-primary" onclick="handleChoice(\'interested\')"><span>&#10004;</span> ฉันสนใจ รับข้อมูลต่อ</button><button class="btn btn-secondary" onclick="handleChoice(\'unsubscribe\')"><span>&#10006;</span> ไม่รับ Email นี้อีก</button>';
+        }
+        async function handleChoice(choice) {
+            document.querySelectorAll('.btn').forEach(btn => btn.disabled = true);
+            const resultDiv = document.getElementById('resultMsg');
+            try {
+                await fetch(API_URL + '/api/response', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: currentToken, email: currentEmail, response: choice }) });
+            } catch (e) {}
+            if (choice === 'interested') window.location.href = 'https://scada-linker.mrdiswarin.com/';
+            else {
+                document.getElementById('icon').className = 'icon success';
+                document.getElementById('icon').innerHTML = '&#10004;';
+                document.getElementById('title').textContent = 'บันทึกเรียบร้อยแล้ว';
+                document.getElementById('message').textContent = 'คุณจะไม่ได้รับ Email จากเราอีก';
+                document.getElementById('subtitle').textContent = 'ขอบคุณที่แจ้งให้เราทราบ';
+                document.getElementById('buttons').style.display = 'none';
+                resultDiv.innerHTML = '<div class="result-msg info">ระบบได้ยกเลิกการติดตามแล้ว</div>';
+            }
+        }
+        function showError(title, message) {
+            document.getElementById('icon').className = 'icon error';
+            document.getElementById('icon').innerHTML = '&#10006;';
+            document.getElementById('title').textContent = title;
+            document.getElementById('message').textContent = message;
+            document.getElementById('subtitle').textContent = '';
+        }
+        window.addEventListener('DOMContentLoaded', checkin);
+    </script>
+</body>
+</html>
